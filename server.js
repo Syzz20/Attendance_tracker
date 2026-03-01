@@ -1,30 +1,42 @@
 /**
- * Attendance Tracker – Local Server
- * Run: node server.js
- * Then open: http://localhost:3000
+ * Attendance Tracker – Cloud Server
+ * Deployed on Railway — data stored permanently via JSONBin.
  *
- * No npm installs needed — uses only Node.js built-ins.
- * All data is saved to data.json in this folder.
+ * No npm installs needed — uses only Node.js built-ins + fetch (Node 18+).
  */
 
 const http = require('http');
-const fs   = require('fs');
 const path = require('path');
+const fs   = require('fs');
 
-const PORT = process.env.PORT || 3000;
-const DATA_FILE = path.join(__dirname, 'data.json');
+const PORT           = process.env.PORT || 3000;
 const ADMIN_PASSWORD = 'RTS_checker'; // 🔑 Change this to your own password
-const HTML_FILE = path.join(__dirname, 'index.html');
+const HTML_FILE      = path.join(__dirname, 'index.html');
 
-// ── Ensure data.json exists ──────────────────────────────────────────────────
-if (!fs.existsSync(DATA_FILE)) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify({ people: [], records: {} }, null, 2));
-  console.log('✓ Created data.json');
-}
+// ── JSONBin config ────────────────────────────────────────────────────────────
+const JSONBIN_BIN_ID  = '69a3ccffd0ea881f40e3dcfa';   // 🔑 Paste your Bin ID here
+const JSONBIN_API_KEY = '$2a$10$3Qpgl3bV2cmLfQ06VFCMY.q5Btc5Nq73x4rdgEVJg.28dKOrKVbnW';   // 🔑 Paste your Master Key here
+const JSONBIN_URL     = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-function readData()       { return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')); }
-function writeData(data)  { fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2)); }
+async function readData() {
+  const res = await fetch(JSONBIN_URL + '/latest', {
+    headers: { 'X-Master-Key': JSONBIN_API_KEY }
+  });
+  const json = await res.json();
+  return json.record;
+}
+
+async function writeData(data) {
+  await fetch(JSONBIN_URL, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Master-Key': JSONBIN_API_KEY
+    },
+    body: JSON.stringify(data)
+  });
+}
 
 function json(res, obj, status = 200) {
   res.writeHead(status, {
@@ -62,7 +74,8 @@ const server = http.createServer(async (req, res) => {
 
   // ── GET /api/data  →  return everything ────────────────────────────────
   if (req.method === 'GET' && url === '/api/data') {
-    return json(res, readData());
+    const data = await readData();
+    return json(res, data);
   }
 
   // ── POST /api/auth  →  { password }  →  verify admin ───────────────────
@@ -75,44 +88,44 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'POST' && url === '/api/people') {
     const { name } = await body(req);
     if (!name) return json(res, { error: 'name required' }, 400);
-    const data = readData();
+    const data = await readData();
     if (data.people.includes(name)) return json(res, { error: 'already exists' }, 409);
     data.people.push(name);
-    writeData(data);
+    await writeData(data);
     return json(res, { ok: true, people: data.people });
   }
 
   // ── DELETE /api/people  →  { name }  →  remove person ───────────────────
   if (req.method === 'DELETE' && url === '/api/people') {
     const { name } = await body(req);
-    const data = readData();
+    const data = await readData();
     data.people = data.people.filter(p => p !== name);
     Object.values(data.records).forEach(day => delete day[name]);
-    writeData(data);
+    await writeData(data);
     return json(res, { ok: true });
   }
 
   // ── POST /api/attendance  →  { date, name, status }  →  set status ──────
   if (req.method === 'POST' && url === '/api/attendance') {
     const { date, name, status } = await body(req);
-    const data = readData();
+    const data = await readData();
     if (!data.records[date]) data.records[date] = {};
     if (status === null || status === undefined) {
       delete data.records[date][name];
     } else {
       data.records[date][name] = status;
     }
-    writeData(data);
+    await writeData(data);
     return json(res, { ok: true });
   }
 
   // ── POST /api/attendance/bulk  →  { date, status }  →  mark all ─────────
   if (req.method === 'POST' && url === '/api/attendance/bulk') {
     const { date, status } = await body(req);
-    const data = readData();
+    const data = await readData();
     if (!data.records[date]) data.records[date] = {};
     data.people.forEach(p => { data.records[date][p] = status; });
-    writeData(data);
+    await writeData(data);
     return json(res, { ok: true });
   }
 
