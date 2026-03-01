@@ -13,6 +13,7 @@ const path = require('path');
 
 const PORT      = 3000;
 const DATA_FILE = path.join(__dirname, 'data.json');
+const ADMIN_PASSWORD = 'RTS_checker'; // 🔑 Change this to your own password
 const HTML_FILE = path.join(__dirname, 'index.html');
 
 // ── Ensure data.json exists ──────────────────────────────────────────────────
@@ -62,6 +63,12 @@ const server = http.createServer(async (req, res) => {
   // ── GET /api/data  →  return everything ────────────────────────────────
   if (req.method === 'GET' && url === '/api/data') {
     return json(res, readData());
+  }
+
+  // ── POST /api/auth  →  { password }  →  verify admin ───────────────────
+  if (req.method === 'POST' && url === '/api/auth') {
+    const { password } = await body(req);
+    return json(res, { ok: password === ADMIN_PASSWORD });
   }
 
   // ── POST /api/people  →  { name }  →  add person ────────────────────────

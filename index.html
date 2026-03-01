@@ -211,6 +211,40 @@
   .toast.success { background: var(--accent); color: #0d0f14; }
   .toast.error   { background: var(--absent); color: #fff; }
 
+  /* Admin lock styles */
+  .admin-only { display: none; }
+  .app.admin-unlocked .admin-only { display: flex; }
+
+  .lock-btn {
+    padding: 8px 16px; border-radius: 100px; font-family: 'Syne', sans-serif;
+    font-weight: 700; font-size: 0.78rem; cursor: pointer; border: 1px solid var(--border);
+    background: var(--surface); color: var(--muted); transition: all 0.2s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .lock-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .lock-btn.unlocked { border-color: var(--accent); color: var(--accent); background: rgba(95,255,176,0.08); }
+
+  /* Modal */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 300; backdrop-filter: blur(4px);
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  .modal-backdrop.open { opacity: 1; pointer-events: all; }
+
+  .modal {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 32px; width: 100%; max-width: 380px;
+    font-family: 'Syne', sans-serif;
+  }
+  .modal h2 { font-size: 1.4rem; font-weight: 800; margin-bottom: 6px; }
+  .modal p { font-family: 'DM Mono', monospace; font-size: 0.78rem; color: var(--muted); margin-bottom: 24px; }
+  .modal input { margin-bottom: 12px; letter-spacing: 3px; }
+  .modal-btns { display: flex; gap: 10px; }
+  .modal-btns .btn { flex: 1; }
+
+
   /* Loading overlay */
   .loading {
     position: fixed; inset: 0; background: var(--bg);
@@ -243,6 +277,9 @@
     </div>
     <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
       <div class="save-indicator">
+        <button class="lock-btn" id="lockBtn" onclick="toggleAdminModal()">
+          🔒 Admin Login
+        </button>
         <div class="pulse"></div>
         <span>Auto-saved to disk</span>
       </div>
@@ -257,7 +294,7 @@
 
   <!-- TODAY VIEW -->
   <div class="view active" id="view-today">
-    <div class="controls">
+    <div class="controls admin-only">
       <input type="text" id="nameInput" placeholder="Add member name… (press Enter)" onkeydown="if(event.key==='Enter') addPerson()">
       <button class="btn btn-primary" onclick="addPerson()">+ Add Member</button>
       <button class="btn btn-ghost" onclick="markAll('present')">✓ All Present</button>
@@ -446,7 +483,7 @@
             onclick="setStatus('${esc(name)}','${s}')"
             title="${s[0].toUpperCase()+s.slice(1)}">${icons[s]}</button>
         `).join('')}
-        <button class="btn-remove" onclick="removePerson('${esc(name)}')" title="Remove">×</button>
+        <button class="btn-remove admin-only" style="display:none" onclick="removePerson('${esc(name)}')" title="Remove">×</button>
       </div>`;
     }).join('');
 
@@ -547,6 +584,66 @@
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
   }
+
+  // ─── Admin auth ───────────────────────────────────────────────────────────────
+let isAdmin = false;
+
+function toggleAdminModal() {
+  if (isAdmin) { lockAdmin(); return; }
+  document.getElementById('adminModal').classList.add('open');
+  setTimeout(() => document.getElementById('adminPwInput').focus(), 100);
+}
+
+function closeAdminModal() {
+  document.getElementById('adminModal').classList.remove('open');
+  document.getElementById('adminPwInput').value = '';
+}
+
+async function submitAdminLogin() {
+  const pw = document.getElementById('adminPwInput').value;
+  const res = await api('POST', '/api/auth', { password: pw });
+  if (res.ok) {
+    isAdmin = true;
+    document.getElementById('lockBtn').textContent = '🔓 Admin Mode';
+    document.getElementById('lockBtn').classList.add('unlocked');
+    document.querySelector('.app').classList.add('admin-unlocked');
+    applyAdminUI();
+    closeAdminModal();
+    toast('Admin mode unlocked');
+  } else {
+    toast('Wrong password', 'error');
+    document.getElementById('adminPwInput').value = '';
+  }
+}
+
+function lockAdmin() {
+  isAdmin = false;
+  document.getElementById('lockBtn').textContent = '🔒 Admin Login';
+  document.getElementById('lockBtn').classList.remove('unlocked');
+  document.querySelector('.app').classList.remove('admin-unlocked');
+  applyAdminUI();
+  toast('Admin mode locked');
+}
+
+function applyAdminUI() {
+  // Show/hide all dynamically-rendered admin-only elements (remove buttons)
+  document.querySelectorAll('.btn-remove.admin-only').forEach(el => {
+    el.style.display = isAdmin ? 'flex' : 'none';
+  });
+}
 </script>
+  
+<div class="modal-backdrop" id="adminModal">
+  <div class="modal">
+    <h2>Admin Access</h2>
+    <p>Enter the admin password to unlock member management.</p>
+    <input type="password" id="adminPwInput" placeholder="Password" 
+      onkeydown="if(event.key==='Enter') submitAdminLogin()">
+    <div class="modal-btns">
+      <button class="btn btn-ghost" onclick="closeAdminModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitAdminLogin()">Unlock</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
