@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Attendance Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d0f14;
+    --surface: #161a23;
+    --border: #252b38;
+    --accent: #5fffb0;
+    --accent2: #ff6b6b;
+    --accent3: #ffd166;
+    --text: #e8eaf0;
+    --muted: #5a6275;
+    --present: #5fffb0;
+    --absent: #ff6b6b;
+    --late: #ffd166;
+    --excused: #74b9ff;
+  }
+
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(95,255,176,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(95,255,176,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 24px;
+  }
+
+  /* HEADER */
+  header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 48px;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .logo-block h1 {
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    font-weight: 800;
+    letter-spacing: -2px;
+    line-height: 1;
+    color: var(--text);
+  }
+
+  .logo-block h1 span {
+    color: var(--accent);
+  }
+
+  .logo-block p {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-top: 6px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .header-stats {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .stat-pill {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 8px 18px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .stat-pill .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  /* CONTROLS */
+  .controls {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 12px;
+    margin-bottom: 32px;
+    align-items: center;
+  }
+
+  @media (max-width: 600px) {
+    .controls { grid-template-columns: 1fr; }
+  }
+
+  input[type="text"], input[type="date"], select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 0.9rem;
+    padding: 12px 16px;
+    outline: none;
+    transition: border-color 0.2s;
+    width: 100%;
+  }
+
+  input[type="text"]:focus, input[type="date"]:focus, select:focus {
+    border-color: var(--accent);
+  }
+
+  .btn {
+    padding: 12px 22px;
+    border: none;
+    border-radius: 10px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.18s;
+    white-space: nowrap;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #0d0f14;
+  }
+
+  .btn-primary:hover {
+    background: #7fffbf;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(95,255,176,0.25);
+  }
+
+  .btn-ghost {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  .btn-ghost:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* ADD PERSON SECTION */
+  .add-section {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+  }
+
+  .add-section input {
+    flex: 1;
+    min-width: 200px;
+  }
+
+  /* DATE SELECTOR */
+  .date-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 28px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 20px;
+    flex-wrap: wrap;
+  }
+
+  .date-bar label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .date-bar input[type="date"] {
+    background: transparent;
+    border: 1px solid var(--border);
+    width: auto;
+  }
+
+  .date-nav { display: flex; gap: 8px; margin-left: auto; }
+
+  /* TABLE */
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 32px;
+  }
+
+  .table-header {
+    display: grid;
+    grid-template-columns: auto 1fr repeat(4, auto) auto;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .person-row {
+    display: grid;
+    grid-template-columns: auto 1fr repeat(4, auto) auto;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+    align-items: center;
+    transition: background 0.15s;
+  }
+
+  .person-row:last-child { border-bottom: none; }
+  .person-row:hover { background: rgba(255,255,255,0.02); }
+
+  .row-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    min-width: 24px;
+    text-align: center;
+  }
+
+  .person-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+
+  .status-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    border: 1.5px solid var(--border);
+    background: transparent;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .status-btn:hover { transform: scale(1.1); }
+
+  .status-btn.active-present {
+    background: rgba(95,255,176,0.15);
+    border-color: var(--present);
+    box-shadow: 0 0 10px rgba(95,255,176,0.2);
+  }
+  .status-btn.active-absent {
+    background: rgba(255,107,107,0.15);
+    border-color: var(--absent);
+    box-shadow: 0 0 10px rgba(255,107,107,0.2);
+  }
+  .status-btn.active-late {
+    background: rgba(255,209,102,0.15);
+    border-color: var(--late);
+    box-shadow: 0 0 10px rgba(255,209,102,0.2);
+  }
+  .status-btn.active-excused {
+    background: rgba(116,185,255,0.15);
+    border-color: var(--excused);
+    box-shadow: 0 0 10px rgba(116,185,255,0.2);
+  }
+
+  .btn-remove {
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 1rem;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .btn-remove:hover {
+    background: rgba(255,107,107,0.15);
+    border-color: var(--absent);
+    color: var(--absent);
+  }
+
+  .empty-state {
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--muted);
+  }
+
+  .empty-state .icon { font-size: 2.5rem; margin-bottom: 12px; }
+  .empty-state p { font-family: 'DM Mono', monospace; font-size: 0.85rem; }
+
+  /* HISTORY VIEW */
+  .section-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .history-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+
+  .history-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    transition: border-color 0.2s;
+    cursor: pointer;
+  }
+
+  .history-card:hover { border-color: var(--accent); }
+
+  .history-card .date-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .history-bars {
+    display: flex;
+    gap: 4px;
+    height: 6px;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+
+  .bar-seg { height: 100%; border-radius: 2px; transition: flex 0.3s; }
+
+  .history-counts {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .count-item {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .count-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+  }
+
+  /* TABS */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 28px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 5px;
+    width: fit-content;
+  }
+
+  .tab {
+    padding: 8px 20px;
+    border-radius: 8px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    transition: all 0.15s;
+  }
+
+  .tab.active {
+    background: var(--accent);
+    color: #0d0f14;
+  }
+
+  /* Notification */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--accent);
+    color: #0d0f14;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 100;
+  }
+
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  .legend {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  .legend-box {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+  }
+
+  .view { display: none; }
+  .view.active { display: block; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo-block">
+      <h1>Attend<span>.</span></h1>
+      <p id="totalSummary">0 people · 0 records</p>
+    </div>
+    <div class="header-stats" id="headerStats"></div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('today')">Today</button>
+    <button class="tab" onclick="switchTab('history')">History</button>
+  </div>
+
+  <!-- TODAY VIEW -->
+  <div class="view active" id="view-today">
+    <div class="add-section">
+      <input type="text" id="nameInput" placeholder="Add a person… (press Enter)" onkeydown="if(event.key==='Enter') addPerson()">
+      <button class="btn btn-primary" onclick="addPerson()">+ Add</button>
+      <button class="btn btn-ghost" onclick="markAll('present')">All Present</button>
+    </div>
+
+    <div class="date-bar">
+      <label>Date</label>
+      <input type="date" id="dateSelect" onchange="renderTable()">
+      <div class="date-nav">
+        <button class="btn btn-ghost" onclick="changeDate(-1)">← Prev</button>
+        <button class="btn btn-ghost" onclick="changeDate(1)">Next →</button>
+        <button class="btn btn-primary" onclick="goToday()">Today</button>
+      </div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item"><div class="legend-box" style="background:var(--present)"></div>Present</div>
+      <div class="legend-item"><div class="legend-box" style="background:var(--absent)"></div>Absent</div>
+      <div class="legend-item"><div class="legend-box" style="background:var(--late)"></div>Late</div>
+      <div class="legend-item"><div class="legend-box" style="background:var(--excused)"></div>Excused</div>
+    </div>
+
+    <div class="table-wrap">
+      <div class="table-header">
+        <span>#</span>
+        <span>Name</span>
+        <span>Present</span>
+        <span>Absent</span>
+        <span>Late</span>
+        <span>Excused</span>
+        <span></span>
+      </div>
+      <div id="attendanceTable"></div>
+    </div>
+  </div>
+
+  <!-- HISTORY VIEW -->
+  <div class="view" id="view-history">
+    <div class="section-title">All Recorded Days</div>
+    <div class="history-grid" id="historyGrid"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ─── State ───────────────────────────────────────────────────────────────────
+  let people = JSON.parse(localStorage.getItem('att_people') || '[]');
+  let records = JSON.parse(localStorage.getItem('att_records') || '{}');
+  // records: { "2024-01-15": { "Alice": "present", "Bob": "absent" } }
+
+  const dateInput = document.getElementById('dateSelect');
+
+  function todayStr() {
+    return new Date().toISOString().split('T')[0];
+  }
+
+  function save() {
+    localStorage.setItem('att_people', JSON.stringify(people));
+    localStorage.setItem('att_records', JSON.stringify(records));
+  }
+
+  // ─── Init ────────────────────────────────────────────────────────────────────
+  dateInput.value = todayStr();
+  renderAll();
+
+  // ─── Tab switching ────────────────────────────────────────────────────────────
+  function switchTab(tab) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById('view-' + tab).classList.add('active');
+    event.target.classList.add('active');
+    if (tab === 'history') renderHistory();
+  }
+
+  // ─── Date navigation ─────────────────────────────────────────────────────────
+  function changeDate(delta) {
+    const d = new Date(dateInput.value);
+    d.setDate(d.getDate() + delta);
+    dateInput.value = d.toISOString().split('T')[0];
+    renderTable();
+  }
+
+  function goToday() {
+    dateInput.value = todayStr();
+    renderTable();
+  }
+
+  // ─── Add person ───────────────────────────────────────────────────────────────
+  function addPerson() {
+    const val = document.getElementById('nameInput').value.trim();
+    if (!val) return;
+    if (people.includes(val)) { toast('Already exists!'); return; }
+    people.push(val);
+    save();
+    document.getElementById('nameInput').value = '';
+    renderAll();
+    toast('Added ' + val);
+  }
+
+  function removePerson(name) {
+    if (!confirm(`Remove "${name}" from all records?`)) return;
+    people = people.filter(p => p !== name);
+    Object.keys(records).forEach(d => { delete records[d][name]; });
+    save();
+    renderAll();
+    toast('Removed ' + name);
+  }
+
+  // ─── Set status ───────────────────────────────────────────────────────────────
+  function setStatus(name, status) {
+    const date = dateInput.value;
+    if (!records[date]) records[date] = {};
+    if (records[date][name] === status) {
+      delete records[date][name]; // toggle off
+    } else {
+      records[date][name] = status;
+    }
+    save();
+    renderTable();
+    renderHeaderStats();
+    renderSummary();
+  }
+
+  function markAll(status) {
+    const date = dateInput.value;
+    if (!records[date]) records[date] = {};
+    people.forEach(p => { records[date][p] = status; });
+    save();
+    renderTable();
+    renderHeaderStats();
+    renderSummary();
+    toast('Marked all as ' + status);
+  }
+
+  // ─── Render ───────────────────────────────────────────────────────────────────
+  function renderAll() {
+    renderTable();
+    renderHeaderStats();
+    renderSummary();
+  }
+
+  function renderTable() {
+    const date = dateInput.value;
+    const dayRec = records[date] || {};
+    const container = document.getElementById('attendanceTable');
+
+    if (people.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="icon">📋</div>
+          <p>No people added yet. Add someone above to begin tracking.</p>
+        </div>`;
+      return;
+    }
+
+    const statuses = ['present','absent','late','excused'];
+    const icons = { present:'✓', absent:'✗', late:'⏱', excused:'○' };
+
+    container.innerHTML = people.map((name, i) => {
+      const cur = dayRec[name] || null;
+      return `<div class="person-row">
+        <span class="row-num">${i+1}</span>
+        <span class="person-name">${name}</span>
+        ${statuses.map(s => `
+          <button class="status-btn ${cur===s ? 'active-'+s : ''}"
+            onclick="setStatus('${name.replace(/'/g,"\\'")}','${s}')"
+            title="${s.charAt(0).toUpperCase()+s.slice(1)}"
+          >${icons[s]}</button>
+        `).join('')}
+        <button class="btn-remove" onclick="removePerson('${name.replace(/'/g,"\\'")}')" title="Remove">×</button>
+      </div>`;
+    }).join('');
+
+    renderHeaderStats();
+    renderSummary();
+  }
+
+  function renderHeaderStats() {
+    const date = dateInput.value;
+    const dayRec = records[date] || {};
+    const counts = { present:0, absent:0, late:0, excused:0 };
+    people.forEach(p => { if (dayRec[p]) counts[dayRec[p]]++; });
+    const colors = { present:'var(--present)', absent:'var(--absent)', late:'var(--late)', excused:'var(--excused)' };
+    const labels = { present:'Present', absent:'Absent', late:'Late', excused:'Excused' };
+    document.getElementById('headerStats').innerHTML = Object.keys(counts)
+      .map(s => `<div class="stat-pill">
+        <span class="dot" style="background:${colors[s]}"></span>
+        <span>${counts[s]} ${labels[s]}</span>
+      </div>`).join('');
+  }
+
+  function renderSummary() {
+    const totalDays = Object.keys(records).length;
+    document.getElementById('totalSummary').textContent =
+      `${people.length} people · ${totalDays} day${totalDays!==1?'s':''} recorded`;
+  }
+
+  function renderHistory() {
+    const grid = document.getElementById('historyGrid');
+    const dates = Object.keys(records).sort().reverse();
+
+    if (dates.length === 0) {
+      grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+        <div class="icon">📅</div>
+        <p>No history yet. Start marking attendance!</p>
+      </div>`;
+      return;
+    }
+
+    grid.innerHTML = dates.map(date => {
+      const dayRec = records[date];
+      const counts = { present:0, absent:0, late:0, excused:0 };
+      Object.values(dayRec).forEach(s => { if (counts[s]!==undefined) counts[s]++; });
+      const total = Object.values(counts).reduce((a,b)=>a+b,0);
+
+      const barStyle = (s, color) => total > 0
+        ? `flex:${counts[s]};background:${color}`
+        : 'display:none';
+
+      const fmtDate = new Date(date + 'T00:00:00').toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'short',day:'numeric'});
+      return `<div class="history-card">
+        <div class="date-label">${fmtDate}</div>
+        <div class="history-bars">
+          <div class="bar-seg" style="${barStyle('present','var(--present)')}"></div>
+          <div class="bar-seg" style="${barStyle('absent','var(--absent)')}"></div>
+          <div class="bar-seg" style="${barStyle('late','var(--late)')}"></div>
+          <div class="bar-seg" style="${barStyle('excused','var(--excused)')}"></div>
+        </div>
+        <div class="history-counts">
+          ${[['present','var(--present)'],['absent','var(--absent)'],['late','var(--late)'],['excused','var(--excused)']].map(([s,c]) =>
+            `<div class="count-item"><div class="count-dot" style="background:${c}"></div>${counts[s]} ${s}</div>`
+          ).join('')}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // ─── Toast ────────────────────────────────────────────────────────────────────
+  let toastTimer;
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+  }
+</script>
+</body>
+</html>
