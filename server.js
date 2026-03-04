@@ -10,7 +10,7 @@ const path = require('path');
 const fs   = require('fs');
 
 const PORT           = process.env.PORT || 3000;
-const ADMIN_PASSWORD = 'RTS_checker'; // 🔑 Change this to your own password
+const ADMIN_PASSWORD = 'crazyshit'; // 🔑 Change this to your own password
 const HTML_FILE      = path.join(__dirname, 'index.html');
 
 // ── JSONBin config ────────────────────────────────────────────────────────────
